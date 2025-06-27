@@ -1,0 +1,132 @@
+# EXPLAINで実行計画を取得
+shop=# EXPLAIN SELECT * FROM shohin;
+                        QUERY PLAN
+-----------------------------------------------------------
+ Seq Scan on shohin  (cost=0.00..12.20 rows=220 width=332)
+(1 行)
+
+# Warehouseテーブルを作る
+shop=# CREATE TABLE Warehouse
+shop-# (warehouse_id INTEGER NOT NULL PRIMARY KEY,
+shop(# region CHAR(32) NOT NULL);
+CREATE TABLE
+
+# データを挿入する
+shop=# INSERT INTO Warehouse VALUES (1, 'East Coast');
+INSERT 0 1
+shop=# INSERT INTO Warehouse VALUES (2, 'East Coast');
+INSERT 0 1
+shop=# INSERT INTO Warehouse VALUES (3, 'West Coast');
+INSERT 0 1
+shop=# INSERT INTO Warehouse VALUES (4, 'West Coast');
+INSERT 0 1
+shop=# INSERT INTO Warehouse VALUES (5, 'West Coast');
+INSERT 0 1
+
+# テーブルの中身を確認
+shop=# SELECT * FROM warehouse;
+ warehouse_id |              region
+--------------+----------------------------------
+            1 | East Coast
+            2 | East Coast
+            3 | West Coast
+            4 | West Coast
+            5 | West Coast
+(5 行)
+
+# 簡潔にSELECT CASEを書ける
+shop=# SELECT CASE warehouse_id
+shop-# WHEN 1 THEN 'New York'
+shop-# WHEN 2 THEN 'New Jersey'
+shop-# WHEN 3 THEN 'Los Angeles'
+shop-# WHEN 4 THEN 'Seattle'
+shop-# WHEN 5 THEN 'SanFrancisco'
+shop-# ELSE NULL END, region FROM warehouse;
+     case     |              region
+--------------+----------------------------------
+ New York     | East Coast
+ New Jersey   | East Coast
+ Los Angeles  | West Coast
+ Seattle      | West Coast
+ SanFrancisco | West Coast
+(5 行)
+
+# CASE式の復習（プログラミングのswitch文に近い）
+shop=# SELECT shohin_bunrui, CASE shohin_bunrui
+shop-# WHEN '衣服' THEN '衣服のカテゴリです'
+shop-# WHEN '事務用品' THEN '事務用品のカテゴリです'
+shop-# WHEN 'キッチン用品' THEN 'キッチン用品のカテゴリです'
+shop-# ELSE NULL END FROM shohin;
+ shohin_bunrui |            case
+---------------+----------------------------
+ 衣服          | 衣服のカテゴリです
+ 事務用品      | 事務用品のカテゴリです
+ 衣服          | 衣服のカテゴリです
+ キッチン用品  | キッチン用品のカテゴリです
+ キッチン用品  | キッチン用品のカテゴリです
+ キッチン用品  | キッチン用品のカテゴリです
+ キッチン用品  | キッチン用品のカテゴリです
+ 事務用品      | 事務用品のカテゴリです
+(8 行)
+
+# これは単純CASE式の書き方
+shop=# SELECT CASE warehouse_id
+shop-# WHEN 1 THEN 'New York'
+shop-# WHEN 2 THEN 'New Jersey'
+shop-# WHEN 3 THEN 'Los Angeles'
+shop-# WHEN 4 THEN 'Seattle'
+shop-# WHEN 5 THEN 'SanFrancisco'
+shop-# ELSE NULL END, region FROM warehouse;
+     case     |              region
+--------------+----------------------------------
+ New York     | East Coast
+ New Jersey   | East Coast
+ Los Angeles  | West Coast
+ Seattle      | West Coast
+ SanFrancisco | West Coast
+(5 行)
+
+# 検索CASE式の書き方
+shop=# SELECT CASE
+shop-# WHEN warehouse_id = 1 THEN 'New York'
+shop-# WHEN warehouse_id = 2 THEN 'New Jserey'
+shop-# WHEN warehouse_id = 3 THEN 'Los Angeles'
+shop-# WHEN warehouse_id = 4 THEN 'Seattle'
+shop-# WHEN warehouse_id = 5 THEN 'San Francisco'
+shop-# ELSE NULL END, region FROM warehouse;
+     case      |              region
+---------------+----------------------------------
+ New York      | East Coast
+ New Jserey    | East Coast
+ Los Angeles   | West Coast
+ Seattle       | West Coast
+ San Francisco | West Coast
+(5 行)
+
+→検索の方を基本的には使うこと
+
+# 最初にヒットしたモノだけが出てくる
+shop=# SELECT CASE
+shop-# WHEN warehouse_id IN (1,2) THEN 'New York'
+shop-# WHEN warehouse_id = 2 THEN 'New Jserey'
+shop-# WHEN warehouse_id = 3 THEN 'Los Angeles'
+shop-# WHEN warehouse_id = 4 THEN 'Seattle'
+shop-# WHEN warehouse_id = 5 THEN 'San Francisco'
+shop-# ELSE NULL END, region FROM warehouse;
+     case      |              region
+---------------+----------------------------------
+ New York      | East Coast
+ New York      | East Coast
+ Los Angeles   | West Coast
+ Seattle       | West Coast
+ San Francisco | West Coast
+(5 行)
+
+# 戻り値の型を揃えること
+shop=# SELECT CASE
+shop-# WHEN warehouse_id IN (1,2) THEN 'New York'
+shop-# WHEN warehouse_id = 3 THEN 100
+shop-# ELSE NULL END, region FROM warehouse;
+ERROR:  "integer"型の入力構文が不正です: "New York"
+行 2: WHEN warehouse_id IN (1,2) THEN 'New York'
+                                      ^
