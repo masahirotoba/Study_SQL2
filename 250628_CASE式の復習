@@ -1,0 +1,44 @@
+# テーブルを出力
+shop=# SELECT * FROM warehouse;
+ warehouse_id |              region
+--------------+----------------------------------
+            1 | East Coast
+            2 | East Coast
+            3 | West Coast
+            4 | West Coast
+            5 | West Coast
+(5 行)
+
+# 単純CASE式
+shop=# SELECT CASE warehouse_id
+shop-# WHEN 1 THEN 'New York'
+shop-# WHEN 2 THEN 'New Jersey'
+shop-# WHEN 3 THEN 'Los Angeles'
+shop-# WHEN 4 THEN 'Seattle'
+shop-# WHEN 5 THEN 'SanFrancisco'
+shop-# ELSE NULL END, region FROM warehouse;
+     case     |              region
+--------------+----------------------------------
+ New York     | East Coast
+ New Jersey   | East Coast
+ Los Angeles  | West Coast
+ Seattle      | West Coast
+ SanFrancisco | West Coast
+(5 行)
+
+# 検索CASE式
+shop=# SELECT CASE
+shop-# WHEN warehouse_id = 1 THEN 'New York'
+shop-# WHEN warehouse_id = 2 THEN 'New Jersey'
+shop-# WHEN warehouse_id = 3 THEN 'Los Angeles'
+shop-# WHEN warehouse_id = 4 THEN 'Seattle'
+shop-# WHEN warehouse_id = 5 THEN 'SanFrancisco'
+shop-# ELSE NULL END, region FROM warehouse;
+     case     |              region
+--------------+----------------------------------
+ New York     | East Coast
+ New Jersey   | East Coast
+ Los Angeles  | West Coast
+ Seattle      | West Coast
+ SanFrancisco | West Coast
+(5 行)
