@@ -1,0 +1,102 @@
+# Cityテーブルを作る
+shop=# CREATE TABLE City
+shop-# (city   CHAR(32) NOT NULL ,
+shop(#  population INTEGER NOT NULL,
+shop(#    CONSTRAINT pk_City PRIMARY KEY (city));
+CREATE TABLE
+shop=#
+shop=#
+shop=# INSERT INTO City VALUES('New York', 8460000);
+INSERT 0 1
+shop=# INSERT INTO City VALUES('Los Angels',  3840000);
+INSERT 0 1
+shop=# INSERT INTO City VALUES('San Francisco',  815000);
+INSERT 0 1
+shop=# INSERT INTO City VALUES('New Orleans',  377000);
+INSERT 0 1
+
+# 中身を確認
+shop=# SELECT * FROM city;
+               city               | population
+----------------------------------+------------
+ New York                         |    8460000
+ Los Angels                       |    3840000
+ San Francisco                    |     815000
+ New Orleans                      |     377000
+(4 行)
+
+# 行列変換をする
+shop=# SELECT SUM(CASE WHEN city = 'New York' THEN population ELSE 0 END) FROM city;
+   sum
+---------
+ 8460000
+(1 行)
+
+# SUMをなくす
+shop=# SELECT CASE WHEN city = 'New York' THEN population ELSE 0 END FROM city;
+  case
+---------
+ 8460000
+       0
+       0
+       0
+(4 行)
+
+# SUMあり・なしで比較をする
+SUMありの場合
+sqlSELECT SUM(CASE WHEN city = 'New York' THEN population ELSE 0 END) FROM city;
+
+集約関数のSUMが全ての行をまとめて1つの値にする
+各行の条件判定結果：8460000 + 0 + 0 + 0 = 8460000
+結果：1行
+
+SUMなしの場合
+sqlSELECT CASE WHEN city = 'New York' THEN population ELSE 0 END FROM city;
+
+行ごとに条件判定を実行
+各行の判定結果：
+
+New York → 8460000（条件に一致）
+Los Angels → 0（条件に不一致）
+San Francisco → 0（条件に不一致）
+New Orleans → 0（条件に不一致）
+
+
+結果：4行（元のテーブルと同じ行数）
+
+重要なポイント
+集約関数（SUM、COUNT、AVGなど）は複数行を1行にまとめる
+
+SUMあり：全行の値を合計して1つの結果
+SUMなし：各行ごとに個別の結果
+
+これがSQLの基本的な動作です。集約関数を使わない限り、SELECTは元のテーブルと同じ行数を返します。
+
+# 前はコレを行列変換した
+shop=# SELECT shohin_bunrui, SUM(hanbai_tanka) FROM shohin GROUP BY shohin_bunrui;
+ shohin_bunrui |  sum
+---------------+-------
+ キッチン用品  | 11180
+ 衣服          |  5000
+ 事務用品      |   600
+(3 行)
+
+# 行列変換できた
+shop=# SELECT SUM(CASE WHEN shohin_bunrui = '衣服' THEN hanbai_tanka ELSE 0 END),
+shop-# SUM(CASE WHEN shohin_bunrui = 'キッチン用品' THEN hanbai_tanka ELSE 0 END),
+shop-# SUM(CASE WHEN shohin_bunrui = '事務用品' THEN hanbai_tanka ELSE 0 END)
+shop-# FROM Shohin;
+ sum  |  sum  | sum
+------+-------+-----
+ 5000 | 11180 | 600
+(1 行)
+
+# SUMがないと、集約されないから全部の行が出力されてしまうから注意
+shop=# SELECT CASE WHEN city = 'New York' THEN population ELSE 0 END FROM city;
+  case
+---------
+ 8460000
+       0
+       0
+       0
+(4 行)
