@@ -1,0 +1,100 @@
+# 新しいテーブルを作った（貼り付けできるので便利）
+shop=# SELECT * FROM itemprice;
+ item_id | year | item_name | price_tax_ex | price_tax_in
+---------+------+-----------+--------------+--------------
+ 100     | 2002 | カップ    |          500 |          525
+ 100     | 2003 | カップ    |          520 |          546
+ 100     | 2004 | カップ    |          600 |          630
+ 100     | 2005 | カップ    |          600 |          630
+ 101     | 2002 | スプーン  |          500 |          525
+ 101     | 2003 | スプーン  |          500 |          525
+ 101     | 2004 | スプーン  |          500 |          525
+ 101     | 2005 | スプーン  |          500 |          525
+ 102     | 2002 | ナイフ    |          600 |          630
+ 102     | 2003 | ナイフ    |          550 |          577
+ 102     | 2004 | ナイフ    |          550 |          577
+ 102     | 2005 | ナイフ    |          400 |          420
+(12 行)
+
+# 冗長な書き方
+shop=# SELECT item_name, year, price_tax_ex FROM itemprice WHERE year <= 2003
+shop-# UNION ALL
+shop-# SELECT item_name, year, price_tax_in FROM itemprice WHERE year >= 2004;
+ item_name | year | price_tax_ex
+-----------+------+--------------
+ カップ    | 2002 |          500
+ カップ    | 2003 |          520
+ スプーン  | 2002 |          500
+ スプーン  | 2003 |          500
+ ナイフ    | 2002 |          600
+ ナイフ    | 2003 |          550
+ カップ    | 2004 |          630
+ カップ    | 2005 |          630
+ スプーン  | 2004 |          525
+ スプーン  | 2005 |          525
+ ナイフ    | 2004 |          577
+ ナイフ    | 2005 |          420
+(12 行)
+
+# 実行計画を見るとムダが多い
+shop=# EXPLAIN SELECT item_name, year, price_tax_ex FROM itemprice WHERE year <= 2003
+shop-# UNION ALL
+shop-# SELECT item_name, year, price_tax_in FROM itemprice WHERE year >= 2004;
+                                  QUERY PLAN
+-------------------------------------------------------------------------------
+ Append  (cost=0.00..36.72 rows=394 width=90)
+   ->  Seq Scan on itemprice  (cost=0.00..17.38 rows=197 width=90)
+         Filter: (year <= 2003)
+   ->  Seq Scan on itemprice itemprice_1  (cost=0.00..17.38 rows=197 width=90)
+         Filter: (year >= 2004)
+(5 行)
+
+# CASE式でもっとシンプルに
+shop=# SELECT item_name, year, CASE
+shop-# WHEN year <= 2003 THEN price_tax_ex
+shop-# WHEN year >= 2004 THEN price_tax_ex
+shop-# ELSE NULL END FROM itemprice;
+ item_name | year | case
+-----------+------+------
+ カップ    | 2002 |  500
+ カップ    | 2003 |  520
+ カップ    | 2004 |  600
+ カップ    | 2005 |  600
+ スプーン  | 2002 |  500
+ スプーン  | 2003 |  500
+ スプーン  | 2004 |  500
+ スプーン  | 2005 |  500
+ ナイフ    | 2002 |  600
+ ナイフ    | 2003 |  550
+ ナイフ    | 2004 |  550
+ ナイフ    | 2005 |  400
+(12 行)
+
+# 実行計画を見る
+shop=# EXPLAIN SELECT item_name, year, CASE
+shop-# WHEN year <= 2003 THEN price_tax_ex
+shop-# WHEN year >= 2004 THEN price_tax_ex
+shop-# ELSE NULL END FROM itemprice;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Seq Scan on itemprice  (cost=0.00..18.85 rows=590 width=90)
+(1 行)
+
+# 2003年以前だけCASE式にかける（それ以外はNULLが出る）
+shop=# SELECT item_name, year, CASE
+shop-# WHEN year <= 2003 THEN price_tax_ex ELSE NULL END FROM itemprice;
+ item_name | year | case
+-----------+------+------
+ カップ    | 2002 |  500
+ カップ    | 2003 |  520
+ カップ    | 2004 |
+ カップ    | 2005 |
+ スプーン  | 2002 |  500
+ スプーン  | 2003 |  500
+ スプーン  | 2004 |
+ スプーン  | 2005 |
+ ナイフ    | 2002 |  600
+ ナイフ    | 2003 |  550
+ ナイフ    | 2004 |
+ ナイフ    | 2005 |
+(12 行)
