@@ -1,0 +1,34 @@
+# 条件式の列を切り替える
+shop=# SELECT item_name, year FROM itemprice WHERE 600 <= CASE
+shop-# WHEN year <= 2003 THEN price_tax_ex
+shop-# WHEN year >= 2004 THEN price_tax_in
+shop-# ELSE NULL END;
+ item_name | year
+-----------+------
+ カップ    | 2004
+ カップ    | 2005
+ ナイフ    | 2002
+(3 行)
+
+# これでも同じ結果に
+shop=# SELECT item_name,year FROM itemprice WHERE CASE
+shop-# WHEN year <= 2003 THEN price_tax_ex
+shop-# WHEN year >= 2004 THEN price_tax_in
+shop-# ELSE NULL END >= 600;
+ item_name | year
+-----------+------
+ カップ    | 2004
+ カップ    | 2005
+ ナイフ    | 2002
+(3 行)
+
+# 新たに列を作るやり方
+shop=# SELECT CASE WHEN city IN ('New York', 'New Orleans') THEN 'East Coast'
+shop-# WHEN city IN ('San Francisco', 'Los Angels') THEN 'West Coast'
+shop-# ELSE NULL END AS region,
+shop-# SUM(population) FROM city GROUP BY region;
+   region   |   sum
+------------+---------
+ West Coast | 4655000
+ East Coast | 8837000
+(2 行)
