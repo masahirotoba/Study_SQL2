@@ -1,0 +1,98 @@
+# 元のテーブル
+shop=# SELECT * FROM itemprice;
+ item_id | year | item_name | price_tax_ex | price_tax_in
+---------+------+-----------+--------------+--------------
+ 100     | 2002 | カップ    |          500 |          525
+ 100     | 2003 | カップ    |          520 |          546
+ 100     | 2004 | カップ    |          600 |          630
+ 100     | 2005 | カップ    |          600 |          630
+ 101     | 2002 | スプーン  |          500 |          525
+ 101     | 2003 | スプーン  |          500 |          525
+ 101     | 2004 | スプーン  |          500 |          525
+ 101     | 2005 | スプーン  |          500 |          525
+ 102     | 2002 | ナイフ    |          600 |          630
+ 102     | 2003 | ナイフ    |          550 |          577
+ 102     | 2004 | ナイフ    |          550 |          577
+ 102     | 2005 | ナイフ    |          400 |          420
+(12 行)
+
+# CASE式で条件の判定
+shop=# SELECT item_name, year, CASE
+shop-# WHEN year <= 2003 THEN price_tax_ex
+shop-# WHEN year >= 2004 THEN price_tax_in
+shop-# ELSE NULL END FROM itemprice;
+ item_name | year | case
+-----------+------+------
+ カップ    | 2002 |  500
+ カップ    | 2003 |  520
+ カップ    | 2004 |  630
+ カップ    | 2005 |  630
+ スプーン  | 2002 |  500
+ スプーン  | 2003 |  500
+ スプーン  | 2004 |  525
+ スプーン  | 2005 |  525
+ ナイフ    | 2002 |  600
+ ナイフ    | 2003 |  550
+ ナイフ    | 2004 |  577
+ ナイフ    | 2005 |  420
+(12 行)
+
+# 元のテーブル
+shop=# SELECT * FROM city;
+               city               | population
+----------------------------------+------------
+ New York                         |    8460000
+ Los Angels                       |    3840000
+ San Francisco                    |     815000
+ New Orleans                      |     377000
+(4 行)
+
+# 行列変換をする
+shop=# SELECT SUM(CASE WHEN city = 'New York' THEN population ELSE 0 END) AS "New York",
+shop-# SUM(CASE WHEN city = 'Los Angels' THEN population ELSE 0 END) AS "Los Angels",
+shop-# SUM(CASE WHEN city = 'San Francisco' THEN population ELSE 0 END) AS "San Francisco",
+shop-# SUM(CASE WHEN city = 'New Orleans' THEN population ELSE 0 END) AS "Mew Orleans" FROM city;
+ New York | Los Angels | San Francisco | Mew Orleans
+----------+------------+---------------+-------------
+  8460000 |    3840000 |        815000 |      377000
+(1 行)
+
+# 並び替えをする
+shop=# SELECT city FROM city ORDER BY CASE
+shop-# WHEN city = 'New York' THEN 1
+shop-# WHEN city = 'San Francisco' THEN 2
+shop-# WHEN city = 'Los Angels' THEN 3
+shop-# WHEN city = 'New Orleans' THEN 4
+shop-# ELSE NULL END;
+               city
+----------------------------------
+ New York
+ San Francisco
+ Los Angels
+ New Orleans
+(4 行)
+
+# UPDATEの中で使う
+shop=# UPDATE city SET population = CASE
+shop-# WHEN city = 'New York' THEN 3840000
+shop-# WHEN city = 'Los Angels' THEN 8460000
+shop-# ELSE population END
+shop-# WHERE city IN ('New York', 'Los Angels');
+UPDATE 2
+
+# WHEREはなぜ必要？
+技術的には不要ですが、パフォーマンスのためにWHERE条件をつけるのがベストプラクティスです。特にテーブルが大きい場合は処理速度に大きな差が出ます。
+
+# 評価の順番の仕組み
+FROM - テーブル指定
+WHERE - 行フィルタリング ← ここで絞り込み
+SELECT/UPDATE - 列操作・更新処理
+
+# パフォーマンスの違い
+WHERE条件あり:
+2行のみ処理（効率的）
+
+WHERE条件なし:
+全行（例：100万行）を処理
+各行でCASE式を評価
+ほとんどの行でELSE populationが実行
