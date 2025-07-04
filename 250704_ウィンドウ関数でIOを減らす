@@ -1,0 +1,128 @@
+# まずはテーブルを作る
+shop=# SELECT * FROM weights;
+ student_id | weight
+------------+--------
+ A          |     55
+ B          |     70
+ C          |     65
+ D          |    120
+ E          |     83
+ F          |     63
+(6 行)
+
+# 平均より上を探す
+shop=# SELECT * FROM weights WHERE weight > (SELECT AVG(weight) FROM weights);
+ student_id | weight
+------------+--------
+ D          |    120
+ E          |     83
+(2 行)
+
+# しかし2回I/Oが走ってしまう
+shop=# EXPLAIN SELECT * FROM weights WHERE weight > (SELECT AVG(weight) FROM weights);
+                                    QUERY PLAN
+-----------------------------------------------------------------------------------
+ Seq Scan on weights  (cost=29.64..63.19 rows=523 width=24)
+   Filter: ((weight)::numeric > (InitPlan 1).col1)
+   InitPlan 1
+     ->  Aggregate  (cost=29.63..29.64 rows=1 width=32)
+           ->  Seq Scan on weights weights_1  (cost=0.00..25.70 rows=1570 width=4)
+(5 行)
+
+# これはエラーになる。カンマが抜けているから
+shop=# SELECT * FROM (SELECT * AVG(weight) OVER() AS avg FROM weights)t WHERE weight > avg;
+ERROR:  "AVG"またはその近辺で構文エラー
+行 1: SELECT * FROM (SELECT * AVG(weight) OVER() AS avg FROM weigh...
+                              ^
+
+# そこでウィンドウ関数を使う
+shop=# SELECT * FROM (SELECT *, AVG(weight) OVER() AS avg FROM weights)t WHERE weight > avg;
+ student_id | weight |         avg
+------------+--------+---------------------
+ D          |    120 | 76.0000000000000000
+ E          |     83 | 76.0000000000000000
+(2 行)
+
+# この仕組みがあまり分かってない
+shop=# SELECT * FROM(SELECT *, AVG(weight) OVER() AS avg FROM weights)t WHERE weight> avg;
+ student_id | weight |         avg
+------------+--------+---------------------
+ D          |    120 | 76.0000000000000000
+ E          |     83 | 76.0000000000000000
+(2 行)
+
+# サブクエリの結果をテーブルとして使う場合、仮のテーブル名が必要に
+名前が必要な場合・不要な場合
+名前が必要な場合：FROM句でサブクエリを使う
+sql-- これは名前が必要（エラーになる）
+SELECT * FROM (SELECT * FROM weights);  -- ❌ エラー
+
+-- これは名前が必要（正常）
+SELECT * FROM (SELECT * FROM weights) t;  -- ✅ OK
+名前が不要な場合：WHERE句、SELECT句でサブクエリを使う
+sql-- WHERE句のサブクエリ（名前不要）
+SELECT * FROM weights 
+WHERE weight > (SELECT AVG(weight) FROM weights);  -- ✅ OK
+
+-- SELECT句のサブクエリ（名前不要）
+SELECT student_id, weight, 
+       (SELECT AVG(weight) FROM weights) as avg_weight
+FROM weights;  -- ✅ OK
+場所による違い
+FROM句：
+
+サブクエリの結果を「テーブル」として使用
+外側のクエリが列を参照するため名前が必要
+名前必須
+
+WHERE句：
+
+サブクエリの結果を「値」として使用
+条件の一部として使用
+名前不要
+
+SELECT句：
+
+サブクエリの結果を「列の値」として使用
+各行に対して実行
+名前不要
+
+# これだと1回に済む
+shop=# EXPLAIN SELECT * FROM(SELECT *, AVG(weight) OVER() AS avg FROM weights)t WHERE weight> avg;
+                               QUERY PLAN
+------------------------------------------------------------------------
+ Subquery Scan on t  (cost=45.30..68.88 rows=523 width=56)
+   Filter: ((t.weight)::numeric > t.avg)
+   ->  WindowAgg  (cost=45.30..45.33 rows=1570 width=56)
+         ->  Seq Scan on weights  (cost=0.00..25.70 rows=1570 width=24)
+(4 行)
+
+# アクセス回数が減っている点に注目
+サブクエリを使った場合：
+sqlSELECT * FROM weights
+WHERE weight > (SELECT AVG(weight) FROM weights);
+                                    ↑
+                        ここで2回目のアクセス
+ウィンドウ関数の場合：
+sqlSELECT *, AVG(weight) OVER() AS avg FROM weights;
+                ↑                        ↑
+        既に読み込まれた              1回目のアクセス
+        データを使用                  （これのみ）
+
+# これだと2回Weightsテーブルにアクセスする
+shop=# SELECT * FROM weights WHERE weight > (SELECT AVG(weight) FROM weights);
+ student_id | weight
+------------+--------
+ D          |    120
+ E          |     83
+(2 行)
+
+# そこでこうする
+shop=# SELECT * FROM(SELECT *, AVG(weight) OVER() AS avg FROM weights)t WHERE weight > avg;
+ student_id | weight |         avg
+------------+--------+---------------------
+ D          |    120 | 76.0000000000000000
+ E          |     83 | 76.0000000000000000
+(2 行)
+
+これならテーブルへのアクセスが1回で済むよ
