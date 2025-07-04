@@ -126,3 +126,192 @@ shop=# SELECT * FROM(SELECT *, AVG(weight) OVER() AS avg FROM weights)t WHERE we
 (2 行)
 
 これならテーブルへのアクセスが1回で済むよ
+
+# これはなぜダメなんですか？
+shop=# SELECT * FROM (SELECT AVG(weight) AS avg FROM weights) WHERE weight> avg;
+ERROR:  列"weight"は存在しません
+行 1: ...OM (SELECT AVG(weight) AS avg FROM weights) WHERE weight> av...
+                                                           ^
+エラーの原因は、サブクエリの結果にweight列が含まれていないからです。
+問題の分析
+サブクエリの結果：
+sqlSELECT AVG(weight) AS avg FROM weights
+この結果は：
+avg
+----
+76
+weight列がない！
+
+はい、まさにその通りです！個別のデータと集計値を同時に扱えるのが、ウィンドウ関数の最大の特徴です。
+従来の制限
+
+従来の集約関数の問題：
+sql-- 集計すると個別データが失われる
+SELECT AVG(weight) FROM weights;
+-- 結果：76（平均値のみ、個別の体重データは消失）
+
+ウィンドウ関数の革新
+個別データ + 集計値を同時に保持：
+sqlSELECT student_id, weight, AVG(weight) OVER() AS avg_weight
+FROM weights;
+結果：
+
+student_id | weight | avg_weight
+-----------|--------|------------
+A          |     55 | 76
+B          |     70 | 76
+C          |     65 | 76
+D          |    120 | 76
+E          |     83 | 76
+F          |     63 | 76
+素晴らしい点：
+
+各学生の体重（個別データ）
+全体の平均（集計値）
+両方が同時に見える
+
+実用的な活用例
+1. 業績と平均の比較：
+sqlSELECT salesperson, monthly_sales,
+       AVG(monthly_sales) OVER() AS company_avg,
+       monthly_sales - AVG(monthly_sales) OVER() AS diff_from_avg
+FROM sales_data;
+2. 複数の集計値を同時表示：
+sqlSELECT student_id, weight,
+       AVG(weight) OVER() AS avg_weight,
+       MAX(weight) OVER() AS max_weight,
+       MIN(weight) OVER() AS min_weight,
+       weight - AVG(weight) OVER() AS diff_from_avg
+FROM weights;
+3. グループ別の集計：
+sqlSELECT shop_id, sales_amt,
+       AVG(sales_amt) OVER (PARTITION BY shop_id) AS shop_avg,
+       AVG(sales_amt) OVER () AS overall_avg
+FROM sales;
+データ分析での威力
+Before（従来）：
+sql-- 1. 平均を調べる
+SELECT AVG(weight) FROM weights;
+
+-- 2. 個別データを調べる
+SELECT * FROM weights;
+
+-- 3. 頭の中で比較... 🤔
+After（ウィンドウ関数）：
+sql-- 1つのクエリで全てが分かる！
+SELECT *, AVG(weight) OVER() AS avg,
+       CASE 
+           WHEN weight > AVG(weight) OVER() THEN '平均以上'
+           ELSE '平均以下'
+       END AS performance
+FROM weights;
+ビジネスでの価値
+経営判断に直結：
+
+個別の売上実績
+全体・部門の平均
+目標との差異
+順位・ランキング
+
+全てを1つの画面で確認可能！
+要点：
+ウィンドウ関数の発明により、「個別データを見ながら全体像も把握する」という、データ分析の理想的な状況が実現できるようになりました。これは従来のSQLでは不可能だった、革新的な機能です！
+
+# なぜ個別の平均値なのに、テーブルになるんですか？
+とても良い質問です！集約関数とウィンドウ関数の大きな違いがここにあります。
+集約関数 vs ウィンドウ関数
+集約関数（GROUP BY）
+sqlSELECT AVG(weight) FROM weights;
+結果：
+avg
+----
+76
+
+1行1列の結果
+個別データは消失
+集約して要約
+
+ウィンドウ関数
+sqlSELECT student_id, weight, AVG(weight) OVER() AS avg_weight FROM weights;
+結果：
+student_id | weight | avg_weight
+-----------|--------|------------
+A          |     55 | 76
+B          |     70 | 76
+C          |     65 | 76
+D          |    120 | 76
+E          |     83 | 76
+F          |     63 | 76
+
+全行保持
+個別データも保持
+各行に集約結果を付加
+
+なぜテーブルになるのか
+ウィンドウ関数の仕組み：
+
+元のテーブルの構造を保持
+各行に計算結果を追加
+行数は変わらない
+
+処理のイメージ：
+元のテーブル:
+A | 55
+B | 70
+C | 65
+D | 120
+E | 83
+F | 63
+
+↓ ウィンドウ関数で平均を計算して各行に付加
+
+結果テーブル:
+A | 55 | 76
+B | 70 | 76
+C | 65 | 76
+D | 120 | 76
+E | 83 | 76
+F | 63 | 76
+「個別の平均値」の意味
+正確には：
+
+平均値自体は1つの値（76）
+でも各行に同じ値を付加
+結果としてテーブル形式になる
+
+例：コピー機能のイメージ
+平均値 = 76
+
+各行に76をコピー:
+A → A, 55, 76
+B → B, 70, 76
+C → C, 65, 76
+...
+実用的な価値
+なぜこの形式が便利か：
+sql-- 各学生と平均の比較が一目瞭然
+SELECT student_id, weight, avg_weight,
+       weight - avg_weight AS diff_from_avg,
+       CASE 
+           WHEN weight > avg_weight THEN '平均以上'
+           ELSE '平均以下'
+       END AS performance
+FROM (
+    SELECT student_id, weight, AVG(weight) OVER() AS avg_weight
+    FROM weights
+) t;
+結果：
+student_id | weight | avg_weight | diff_from_avg | performance
+-----------|--------|------------|---------------|-------------
+A          |     55 |         76 |           -21 | 平均以下
+B          |     70 |         76 |            -6 | 平均以下
+D          |    120 |         76 |            44 | 平均以上
+設計思想
+ウィンドウ関数の哲学：
+
+「詳細データを失わずに分析したい」
+「個別と全体を同時に見たい」
+「行レベルの判断をしたい」
+
+要点：
+平均値は確かに1つの値ですが、ウィンドウ関数は**「各行に同じ平均値を付加」**することで、個別データと集計値を同時に扱えるテーブルを作成します。これにより、行レベルでの比較や判断が可能になります。
