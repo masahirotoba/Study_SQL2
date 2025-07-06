@@ -1,0 +1,94 @@
+# n番目を一般化する
+shop=# SELECT * FROM
+shop-# (SELECT *, ROW_NUMBER() OVER(PARTITION BY customer_id ORDER BY seq) AS price_num FROM receipts)t
+shop-# WHERE price_num = 3;
+ customer_id | seq | price | price_num
+-------------+-----+-------+-----------
+ A           |   3 |   700 |         3
+ B           |   7 |   300 |         3
+ C           |  45 |   200 |         3
+(3 行)
+
+# 書き方を練習
+shop=# SELECT * FROM
+shop-# (SELECT *, ROW_NUMBER() OVER(PARTITION BY customer_id ORDER BY seq) AS price_num FROM receipts)t
+shop-# WHERE price_num = 2;
+ customer_id | seq | price | price_num
+-------------+-----+-------+-----------
+ A           |   2 |  1000 |         2
+ B           |   6 |  5000 |         2
+ C           |  20 |   100 |         2
+(3 行)
+
+# 株価のトレンドテーブルを作る
+ ticker_symbol | sale_date  | closing_price | trend
+---------------+------------+---------------+-------
+ A社           | 2024-04-01 |           100 |
+ A社           | 2024-04-02 |           200 |
+ A社           | 2024-04-03 |           199 |
+ A社           | 2024-04-04 |           199 |
+ B商事         | 2024-10-10 |            10 |
+ B商事         | 2024-04-14 |            20 |
+ B商事         | 2024-04-20 |             5 |
+ C鉄鋼         | 2024-05-01 |           156 |
+ C鉄鋼         | 2024-05-03 |           182 |
+ C鉄鋼         | 2024-05-05 |           182 |
+(10 行)
+
+# 前日より高かったら〇をつける
+shop=# SELECT *, CASE
+shop-# WHEN closing_price > LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date)
+shop-# THEN '〇' ELSE '' END FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend | case
+---------------+------------+---------------+-------+------
+ A社           | 2024-04-01 |           100 |       |
+ A社           | 2024-04-02 |           200 |       | 〇
+ A社           | 2024-04-03 |           199 |       |
+ A社           | 2024-04-04 |           199 |       |
+ B商事         | 2024-04-14 |            20 |       |
+ B商事         | 2024-04-20 |             5 |       |
+ B商事         | 2024-10-10 |            10 |       | 〇
+ C鉄鋼         | 2024-05-01 |           156 |       |
+ C鉄鋼         | 2024-05-03 |           182 |       | 〇
+ C鉄鋼         | 2024-05-05 |           182 |       |
+(10 行)
+
+# 前日と比較をする
+shop=# SELECT *, CASE
+shop-# WHEN closing_price > LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN 1
+shop-# WHEN closing_price < LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN -1
+shop-# WHEN closing_price = LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN 0
+shop-# ELSE NULL END FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend | case
+---------------+------------+---------------+-------+------
+ A社           | 2024-04-01 |           100 |       |
+ A社           | 2024-04-02 |           200 |       |    1
+ A社           | 2024-04-03 |           199 |       |   -1
+ A社           | 2024-04-04 |           199 |       |    0
+ B商事         | 2024-04-14 |            20 |       |
+ B商事         | 2024-04-20 |             5 |       |   -1
+ B商事         | 2024-10-10 |            10 |       |    1
+ C鉄鋼         | 2024-05-01 |           156 |       |
+ C鉄鋼         | 2024-05-03 |           182 |       |    1
+ C鉄鋼         | 2024-05-05 |           182 |       |    0
+(10 行)
+
+# これなら初日とも比較できる
+shop=# SELECT *, CASE
+shop-# WHEN closing_price > LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN 1
+shop-# WHEN closing_price < LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN -1
+shop-# WHEN closing_price = LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN 0
+shop-# ELSE 0 END FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend | case
+---------------+------------+---------------+-------+------
+ A社           | 2024-04-01 |           100 |       |    0
+ A社           | 2024-04-02 |           200 |       |    1
+ A社           | 2024-04-03 |           199 |       |   -1
+ A社           | 2024-04-04 |           199 |       |    0
+ B商事         | 2024-04-14 |            20 |       |    0
+ B商事         | 2024-04-20 |             5 |       |   -1
+ B商事         | 2024-10-10 |            10 |       |    1
+ C鉄鋼         | 2024-05-01 |           156 |       |    0
+ C鉄鋼         | 2024-05-03 |           182 |       |    1
+ C鉄鋼         | 2024-05-05 |           182 |       |    0
+(10 行)
