@@ -1,0 +1,109 @@
+# 人口のテーブル
+shop=# SELECT * FROM population;
+ prefecture | sex | pop
+------------+-----+-----
+ 徳島       |   1 |  60
+ 徳島       |   2 |  40
+ 香川       |   1 |  90
+ 香川       |   2 | 100
+ 愛媛       |   1 | 100
+ 愛媛       |   2 |  50
+ 高知       |   1 | 100
+ 高知       |   2 | 100
+ 福岡       |   1 |  20
+ 福岡       |   2 | 200
+(10 行)
+
+# 都道府県ごとに集計する
+shop=# SELECT prefecture,
+shop-# SUM(CASE WHEN sex = 1 THEN pop ELSE 0 END) AS pop_men,
+shop-# SUM(CASE WHEN sex = 2 THEN pop ELSE 0 END) AS pop_men
+shop-# FROM population GROUP BY prefecture;
+ prefecture | pop_men | pop_men
+------------+---------+---------
+ 高知       |     100 |     100
+ 徳島       |      60 |      40
+ 香川       |      90 |     100
+ 愛媛       |     100 |      50
+ 福岡       |      20 |     200
+(5 行)
+
+# 昨日の復習（INTERVALが難しかった）
+shop=# SELECT customer_id,
+shop-# SUM(CASE WHEN sale_date BETWEEN DATE '2024-6-30'- INTERVAL '30' DAY AND DATE '2024-6-30' THEN sales_amt ELSE 0 END) AS "0~30日前の売上"
+shop-# FROM pizzasales GROUP BY customer_id ORDER BY customer_id;
+ customer_id | 0~30日前の売上
+-------------+----------------
+           1 |           8400
+           2 |              0
+           3 |              0
+(3 行)
+
+# Rolesテーブルを作る
+shop=# SELECT * FROM roles;
+      person      |       role
+------------------+------------------
+ Smith            | Officer
+ Smith            | Director
+ Jones            | Officer
+ White            | Director
+ Brown            | Worker
+ Kim              | Officer
+ Kim              | Worker
+(7 行)
+
+# 重複を数える
+shop=# SELECT person, COUNT(*) FROM roles GROUP BY person;
+      person      | count
+------------------+-------
+ Jones            |     1
+ Smith            |     2
+ Kim              |     2
+ White            |     1
+ Brown            |     1
+(5 行)
+
+# この仕組みを使うと、こんなことが
+shop=# SELECT person, CASE
+shop-# WHEN COUNT(*) = 1 THEN MAX(role)
+shop-# WHEN COUNT(*) = 2 THEN 'Both'
+shop-# ELSE NULL END FROM roles GROUP BY person;
+      person      |       case
+------------------+------------------
+ Jones            | Officer
+ Smith            | Both
+ Kim              | Both
+ White            | Director
+ Brown            | Worker
+(5 行)
+
+
+# テーブルを2つ作ることまでやった
+## レース結果テーブル
+shop=# SELECT * FROM RacingResults;
+ race_nbr |              first_prize               |              second_prize               |              third_prize 
+----------+----------------------------------------+-----------------------------------------+----------------------------------------
+        1 | サンオーシャン                         | ジョニーブレイク                        | ウーバーウィーク         
+        2 | オカメインコ                           | ガンバレフォックス                      | キングイエヤス           
+        3 | サンオーシャン                         | キングイエヤス                          | クイーンモナカ           
+        4 | ウーバーウィーク                       | ジョニーブレイク                        | コーラルフルーツ         
+        5 | コーラルフルーツ                       | ジョニーブレイク                        | ブラザーフッド           
+        6 | ジョニーブレイク                       | ソバヤノデマエ                          | ヒャクシキ               
+(6 行)
+
+## 馬名マスタテーブル
+shop=# SELECT * FROM Horses;
+               horse_name
+-----------------------------------------
+ ジョニーブレイク
+ ウーバーウィーク
+ サンオーシャン
+ コーラルフルーツ
+ キングイエヤス
+ ブラザーフッド
+ ソバヤノデマエ
+ ガンバレフォックス
+ オカメインコ
+ ヒャクシキ
+ クイーンモナカ
+(11 行)
