@@ -158,3 +158,33 @@ shop-# FROM pizzasales GROUP BY customer_id ORDER BY customer_id;
            3 |            0 |               0 |               0 |           1200
 (3 行)
 
+# IDのみで出力
+shop=# SELECT customer_id , SUM(
+shop(# CASE WHEN sale_date BETWEEN DATE '2024-6-30' - INTERVAL '30' DAY AND DATE '2024-6-30' THEN sales_amt ELSE 0 END
+shop(# ) FROM pizzasales GROUP BY customer_id;
+ customer_id | sum
+-------------+------
+           3 |    0
+           2 |    0
+           1 | 8400
+(3 行)
+
+#CASE式はラベルの貼り換えである
+shop=# SELECT *, CASE
+shop-# WHEN sale_date BETWEEN DATE '2024-6-30' - INTERVAL '30' DAY AND DATE '2024-6-30' THEN '0~30日の間' ELSE '×' END
+shop-# FROM pizzasales;
+ customer_id | sale_date  | sales_amt |    case
+-------------+------------+-----------+------------
+           1 | 2024-04-01 |       500 | ×
+           1 | 2024-04-23 |      1200 | ×
+           1 | 2024-05-29 |      1700 | ×
+           1 | 2024-06-01 |       400 | 0~30日の間
+           1 | 2024-06-30 |      8000 | 0~30日の間
+           2 | 2023-12-30 |      1000 | ×
+           2 | 2024-01-10 |       800 | ×
+           2 | 2024-02-25 |       500 | ×
+           2 | 2024-04-13 |      1300 | ×
+           2 | 2024-05-08 |       900 | ×
+           3 | 2023-10-08 |       700 | ×
+           3 | 2023-11-22 |       500 | ×
+(12 行)
