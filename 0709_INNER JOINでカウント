@@ -1,0 +1,225 @@
+# レース結果テーブル
+shop=# SELECT * FROM RacingResults;
+ race_nbr |              first_prize               |              second_prize               |              third_prize 
+----------+----------------------------------------+-----------------------------------------+----------------------------------------
+        1 | サンオーシャン                         | ジョニーブレイク                        | ウーバーウィーク         
+        2 | オカメインコ                           | ガンバレフォックス                      | キングイエヤス           
+        3 | サンオーシャン                         | キングイエヤス                          | クイーンモナカ           
+        4 | ウーバーウィーク                       | ジョニーブレイク                        | コーラルフルーツ         
+        5 | コーラルフルーツ                       | ジョニーブレイク                        | ブラザーフッド           
+        6 | ジョニーブレイク                       | ソバヤノデマエ                          | ヒャクシキ               
+(6 行)
+
+# 馬名マスタテーブル
+shop=# SELECT * FROM Horses;
+               horse_name
+-----------------------------------------
+ ジョニーブレイク
+ ウーバーウィーク
+ サンオーシャン
+ コーラルフルーツ
+ キングイエヤス
+ ブラザーフッド
+ ソバヤノデマエ
+ ガンバレフォックス
+ オカメインコ
+ ヒャクシキ
+ クイーンモナカ
+(11 行)
+
+# 馬ごとにカウントできる
+shop=# SELECT Horses.horse_name, COUNT(*) FROM Horses INNER JOIN RacingResults
+shop-# ON horses.horse_name IN (RacingResults.first_prize, RacingResults.second_prize, RacingResults.third_prize)
+shop-# GROUP BY horses.horse_name;
+               horse_name                | count
+-----------------------------------------+-------
+ ブラザーフッド                          |     1
+ クイーンモナカ                          |     1
+ オカメインコ                            |     1
+ ヒャクシキ                              |     1
+ ジョニーブレイク                        |     4
+ キングイエヤス                          |     2
+ ソバヤノデマエ                          |     1
+ ガンバレフォックス                      |     1
+ サンオーシャン                          |     2
+ コーラルフルーツ                        |     2
+ ウーバーウィーク                        |     2
+(11 行)
+
+# INNER JOINを復習
+shop=# SELECT * FROM shohin;
+ shohin_id |   shohin_mei   | shohin_bunrui | hanbai_tanka | shiire_tanka |  torokubi
+-----------+----------------+---------------+--------------+--------------+------------
+ 0001      | Tシャツ        | 衣服          |         1000 |          500 | 2009-09-20
+ 0002      | 穴あけパンチ   | 事務用品      |          500 |          320 | 2009-09-11
+ 0003      | カッターシャツ | 衣服          |         4000 |         2800 |
+ 0004      | 包丁           | キッチン用品  |         3000 |         2800 | 2009-09-20
+ 0005      | 圧力鍋         | キッチン用品  |         6800 |         5000 | 2009-01-15
+ 0006      | フォーク       | キッチン用品  |          500 |              | 2009-09-20
+ 0007      | おろしがね     | キッチン用品  |          880 |          790 | 2008-04-28
+ 0008      | ボールペン     | 事務用品      |          100 |              | 2009-11-11
+(8 行)
+
+shop=# SELECT * FROM tenposhohin;
+ tenpo_id | tenpo_mei | shohin_id | suryo
+----------+-----------+-----------+-------
+ 000A     | 東京      | 0001      |    30
+ 000A     | 東京      | 0002      |    50
+ 000A     | 東京      | 0003      |    15
+ 000B     | 名古屋    | 0002      |    30
+ 000B     | 名古屋    | 0003      |   120
+ 000B     | 名古屋    | 0004      |    20
+ 000B     | 名古屋    | 0006      |    10
+ 000B     | 名古屋    | 0007      |    40
+ 000C     | 大阪      | 0003      |    20
+ 000C     | 大阪      | 0004      |    50
+ 000C     | 大阪      | 0006      |    90
+ 000C     | 大阪      | 0007      |    70
+ 000D     | 福岡      | 0001      |   100
+(13 行)
+
+shop=# SELECT tenposhohin.tenpo_mei, shohin.shohin_mei, tenposhohin.suryo
+shop-# FROM tenposhohin INNER JOIN shohin
+shop-# ON tenposhohin.shohin_id = shohin.shohin_id;
+ tenpo_mei |   shohin_mei   | suryo
+-----------+----------------+-------
+ 東京      | Tシャツ        |    30
+ 東京      | 穴あけパンチ   |    50
+ 東京      | カッターシャツ |    15
+ 名古屋    | 穴あけパンチ   |    30
+ 名古屋    | カッターシャツ |   120
+ 名古屋    | 包丁           |    20
+ 名古屋    | フォーク       |    10
+ 名古屋    | おろしがね     |    40
+ 大阪      | カッターシャツ |    20
+ 大阪      | 包丁           |    50
+ 大阪      | フォーク       |    90
+ 大阪      | おろしがね     |    70
+ 福岡      | Tシャツ        |   100
+(13 行)
+
+# この基本形をINでまとめただけ
+shop=# SELECT horses.horse_name, COUNT(*)
+shop-# FROM horses INNER JOIN racingresults
+shop-# ON horses.horse_name = racingresults.first_prize
+shop-# GROUP BY horses.horse_name;
+               horse_name               | count
+----------------------------------------+-------
+ オカメインコ                           |     1
+ サンオーシャン                         |     2
+ コーラルフルーツ                       |     1
+ ジョニーブレイク                       |     1
+ ウーバーウィーク                       |     1
+(5 行)
+
+# INでまとめたパターンはこちら
+shop=# SELECT horses.horse_name, COUNT(*)
+shop-# FROM horses INNER JOIN racingresults
+shop-# ON horses.horse_name IN (RacingResults.first_prize, RacingResults.second_prize, RacingResults.third_prize)
+shop-# GROUP BY horses.horse_name;
+               horse_name                | count
+-----------------------------------------+-------
+ ブラザーフッド                          |     1
+ クイーンモナカ                          |     1
+ オカメインコ                            |     1
+ ヒャクシキ                              |     1
+ ジョニーブレイク                        |     4
+ キングイエヤス                          |     2
+ ソバヤノデマエ                          |     1
+ ガンバレフォックス                      |     1
+ サンオーシャン                          |     2
+ コーラルフルーツ                        |     2
+ ウーバーウィーク                        |     2
+(11 行)
+
+# NULLも数えてしまう
+shop=# SELECT Horses.horse_name, COUNT(*) AS tally
+shop-# FROM Horses LEFT OUTER JOIN RacingResults
+shop-# ON Horses.horse_name IN (RacingResults.first_prize, RacingResults.second_prize, RacingResults.third_prize)
+shop-# GROUP BY Horses.horse_name
+shop-# ORDER BY tally DESC;
+               horse_name                | tally
+-----------------------------------------+-------
+ ジョニーブレイク                        |     4
+ ウーバーウィーク                        |     2
+ キングイエヤス                          |     2
+ サンオーシャン                          |     2
+ コーラルフルーツ                        |     2
+ クイーンモナカ                          |     1
+ ブラザーフッド                          |     1
+ ソバヤノデマエ                          |     1
+ ガンバレフォックス                      |     1
+ オカメインコ                            |     1
+ ヒャクシキ                              |     1
+ ロイヤルフラッシュ                      |     1
+(12 行)
+
+# RIGHTの実行結果
+shop=# SELECT Horses.horse_name, COUNT(*) AS tally
+shop-#   FROM Horses RIGHT OUTER JOIN RacingResults
+shop-#     ON Horses.horse_name IN (RacingResults.first_prize, RacingResults.second_prize, RacingResults.third_prize)
+shop-#  GROUP BY Horses.horse_name
+shop-#  ORDER BY tally DESC;
+               horse_name                | tally
+-----------------------------------------+-------
+ ジョニーブレイク                        |     4
+ ウーバーウィーク                        |     2
+ キングイエヤス                          |     2
+ サンオーシャン                          |     2
+ コーラルフルーツ                        |     2
+ ブラザーフッド                          |     1
+ ソバヤノデマエ                          |     1
+ ガンバレフォックス                      |     1
+ オカメインコ                            |     1
+ ヒャクシキ                              |     1
+ クイーンモナカ                          |     1
+(11 行)
+
+# 出力結果が違う理由
+原因分析
+LEFT OUTER JOIN の動作
+sqlFROM Horses LEFT OUTER JOIN RacingResults
+
+Horses テーブルを基準とする
+Horses テーブルの全ての馬を含む
+「ロイヤルフラッシュ」も Horses テーブルに存在するため結果に含まれる
+
+RIGHT OUTER JOIN の動作
+sqlFROM Horses RIGHT OUTER JOIN RacingResults
+
+RacingResults テーブルを基準とする
+RacingResults テーブルに登場する馬のみを含む
+「ロイヤルフラッシュ」は RacingResults テーブルに登場しないため結果に含まれない
+
+結論
+「ロイヤルフラッシュ」は：
+Horses テーブルには存在する
+RacingResults テーブルには登場しない（1位、2位、3位のいずれにも入賞していない）
+そのため、LEFT OUTER JOIN では表示されるが、RIGHT OUTER JOIN では表示されません。再試行Claudeは間違えることがあります。回答内容を必ずご確認ください。
+
+# 列名を数える
+shop=# SELECT Horses.horse_name, COUNT(RacingResults.race_nbr) AS tally
+shop-#   FROM Horses LEFT OUTER JOIN RacingResults
+shop-#     ON Horses.horse_name IN (RacingResults.first_prize, RacingResults.second_prize, RacingResults.third_prize)
+shop-#  GROUP BY Horses.horse_name
+shop-#  ORDER BY tally DESC;
+               horse_name                | tally
+-----------------------------------------+-------
+ ジョニーブレイク                        |     4
+ ウーバーウィーク                        |     2
+ キングイエヤス                          |     2
+ サンオーシャン                          |     2
+ コーラルフルーツ                        |     2
+ クイーンモナカ                          |     1
+ ブラザーフッド                          |     1
+ ソバヤノデマエ                          |     1
+ ガンバレフォックス                      |     1
+ オカメインコ                            |     1
+ ヒャクシキ                              |     1
+ ロイヤルフラッシュ                      |     0
+(12 行)
+
+# COUNT(列名)
+NULL以外の値を数える
+NULLは除外される
+JOIN条件に一致しない場合、その列はNULLになるので0とカウント
