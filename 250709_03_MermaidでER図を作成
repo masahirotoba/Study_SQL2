@@ -1,0 +1,50 @@
+# 正規化の参考URL
+https://zenn.dev/masaruxstudy/articles/333f8fe395ef2e
+
+# MermaidでER図を作成する
+
+erDiagram
+    %% スタースキーマ ER図
+    
+    %% ディメンションテーブル（マスタデータ）
+    stores {
+        int store_id PK
+        varchar store_name
+    }
+    
+    companies {
+        int company_id PK
+        varchar company_name
+        varchar company_category
+    }
+    
+    staff {
+        int staff_id PK
+        varchar staff_name
+        varchar department
+    }
+    
+    products {
+        int product_id PK
+        varchar product_name
+        int unit_price
+        int cost_price
+        varchar category
+    }
+    
+    %% ファクトテーブル（中心）
+    salesfact {
+        int order_id PK
+        date sale_date
+        int quantity
+        int store_id FK
+        int company_id FK
+        int staff_id FK
+        int product_id FK
+    }
+    
+    %% リレーションシップ（1対多）
+    stores ||--o{ salesfact : "店舗"
+    companies ||--o{ salesfact : "企業"
+    staff ||--o{ salesfact : "担当者"
+    products ||--o{ salesfact : "商品"
