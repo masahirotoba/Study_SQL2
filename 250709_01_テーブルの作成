@@ -1,0 +1,156 @@
+# 新しいデータベースを作成する
+postgres=# CREATE DATABASE sample;
+CREATE DATABASE
+
+# 接続をする
+postgres=# \c sample
+データベース"sample"にユーザー"postgres"として接続しました。
+
+# Salesテーブルを作成
+CREATE TABLE Sales (
+	  -- 主キー
+    order_id INTEGER PRIMARY KEY,
+
+    -- 日付
+    sale_date DATE NOT NULL,
+
+    -- 店舗
+    store_name VARCHAR(5) NOT NULL,
+
+    -- 担当者
+    staff_name VARCHAR(7) NOT NULL,
+    department VARCHAR(6) NOT NULL,
+
+  	-- 企業
+    company_name VARCHAR(7) NOT NULL,
+    company_category VARCHAR(7) NOT NULL,
+
+    -- 商品
+    product_name VARCHAR(5) NOT NULL,
+    product_category VARCHAR(7) NOT NULL,
+    unit_price INTEGER NOT NULL CHECK (unit_price > 0),
+    cost_price INTEGER NOT NULL CHECK (cost_price > 0),
+
+    -- 金額・数量情報
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    sales_amount INTEGER NOT NULL CHECK (sales_amount > 0)
+);
+
+# Salesテーブルに対してデータを挿入
+INSERT INTO Sales (
+    order_id, sale_date, store_name, staff_name, department,
+    company_name, company_category, product_name, product_category,
+    unit_price, cost_price, quantity, sales_amount
+) VALUES
+(1, '2022-01-01', '東京', 'A自動車', '大企業', '田中', '第1営業部', '商品B', 'カテゴリX', 750, 700, 1, 750),
+(2, '2022-01-03', '大阪', 'D電機', '零細企業', '佐藤', '第1営業部', '商品D', 'カテゴリY', 3000, 2750, 4, 12000),
+(3, '2022-01-03', '大阪', 'B商事', '中小企業', '佐藤', '第1営業部', '商品E', 'カテゴリZ', 5000, 4500, 6, 30000),
+(4, '2022-01-05', '大阪', 'A自動車', '大企業', '田中', '第1営業部', '商品A', 'カテゴリX', 500, 475, 1, 500),
+(5, '2022-01-05', '大阪', 'D電機', '零細企業', '山田', '第2営業部', '商品E', 'カテゴリZ', 5000, 4500, 1, 5000),
+..（以下略）
+
+# 各マスタテーブルを作成
+-- 1. 店舗マスタテーブル
+CREATE TABLE stores (
+    store_id INTEGER PRIMARY KEY,
+    store_name VARCHAR(5) NOT NULL UNIQUE
+);
+
+-- 2. 企業マスタテーブル
+CREATE TABLE companies (
+    company_id INTEGER PRIMARY KEY,
+    company_name VARCHAR(7) NOT NULL,
+    company_category VARCHAR(7) NOT NULL,
+    UNIQUE(company_name, company_category)
+);
+
+-- 3. 担当者マスタテーブル
+CREATE TABLE staff (
+    staff_id INTEGER PRIMARY KEY,
+    staff_name VARCHAR(7) NOT NULL,
+    department VARCHAR(6) NOT NULL,
+    UNIQUE(staff_name, department)
+);
+
+-- 4. 商品マスタテーブル
+CREATE TABLE products (
+    product_id INTEGER PRIMARY KEY,
+    product_name VARCHAR(5) NOT NULL,
+    unit_price INTEGER NOT NULL CHECK (unit_price > 0),
+    cost_price INTEGER NOT NULL CHECK (cost_price > 0),
+    category VARCHAR(7) NOT NULL,
+    UNIQUE(product_name, category)
+);
+
+# マスタテーブルに値を設定
+-- 店舗マスタデータ投入
+INSERT INTO stores (store_id, store_name) VALUES
+(1, '東京'),
+(2, '大阪'),
+(3, '福岡');
+
+-- 企業マスタデータ投入
+INSERT INTO companies (company_id, company_name, company_category) VALUES
+(1, 'A自動車', '大企業'),
+(2, 'B商事', '中小企業'),
+(3, 'C工業', '中小企業'),
+(4, 'D電機', '零細企業'),
+(5, 'Eシステム', '零細企業');
+
+-- 担当者マスタデータ投入
+INSERT INTO staff (staff_id, staff_name, department) VALUES
+(1, '田中', '第1営業部'),
+(2, '佐藤', '第1営業部'),
+(3, '山田', '第2営業部'),
+(4, '加藤', '第2営業部'),
+(5, '佐々木', '第3営業部');
+
+-- 商品マスタデータ投入
+INSERT INTO products (product_id, product_name, unit_price, cost_price, category) VALUES
+(1, '商品A', 500, 475, 'カテゴリX'),
+(2, '商品B', 750, 700, 'カテゴリX'),
+(3, '商品C', 1500, 750, 'カテゴリY'),
+(4, '商品D', 3000, 2750, 'カテゴリY'),
+(5, '商品E', 5000, 4500, 'カテゴリZ');
+
+# 各テーブルの中身を表示
+sample=# SELECT * FROM stores;      -- 店舗マスタ
+ store_id | store_name
+----------+------------
+        1 | 東京
+        2 | 大阪
+        3 | 福岡
+(3 行)
+
+
+sample=# SELECT * FROM companies;   -- 企業マスタ
+ company_id | company_name | company_category
+------------+--------------+------------------
+          1 | A自動車      | 大企業
+          2 | B商事        | 中小企業
+          3 | C工業        | 中小企業
+          4 | D電機        | 零細企業
+          5 | Eシステム    | 零細企業
+(5 行)
+
+
+sample=# SELECT * FROM staff;       -- 担当者マスタ
+ staff_id | staff_name | department
+----------+------------+------------
+        1 | 田中       | 第1営業部
+        2 | 佐藤       | 第1営業部
+        3 | 山田       | 第2営業部
+        4 | 加藤       | 第2営業部
+        5 | 佐々木     | 第3営業部
+(5 行)
+
+
+sample=# SELECT * FROM products;    -- 商品マスタ
+ product_id | product_name | unit_price | cost_price | category
+------------+--------------+------------+------------+-----------
+          1 | 商品A        |        500 |        475 | カテゴリX
+          2 | 商品B        |        750 |        700 | カテゴリX
+          3 | 商品C        |       1500 |        750 | カテゴリY
+          4 | 商品D        |       3000 |       2750 | カテゴリY
+          5 | 商品E        |       5000 |       4500 | カテゴリZ
+(5 行)
