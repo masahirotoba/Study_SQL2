@@ -1,0 +1,47 @@
+# SalesFactテーブルを作成
+CREATE TABLE SalesFact (
+    order_id INTEGER PRIMARY KEY,
+    sale_date DATE NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    store_id INTEGER NOT NULL,
+    company_id INTEGER NOT NULL,
+    staff_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    
+    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (company_id) REFERENCES companies(company_id),
+    FOREIGN KEY (staff_id) REFERENCES staff(staff_id),
+    FOREIGN KEY (product_id) REFERENCES products(product_id)
+);
+
+# SalesFactテーブルにJOINする
+sample=# INSERT INTO salesfact (
+sample(#     order_id, sale_date, quantity, store_id, company_id, staff_id, product_id
+sample(# )
+sample-# SELECT
+sample-#     sales.order_id,
+sample-#     sales.sale_date,
+sample-#     sales.quantity,
+sample-#     stores.store_id,
+sample-#     companies.company_id,
+sample-#     staff.staff_id,
+sample-#     products.product_id
+sample-# FROM sales
+sample-# JOIN stores ON sales.store_name = stores.store_name
+sample-# JOIN companies ON sales.company_name = companies.company_name
+sample-#                  AND sales.company_category = companies.company_category
+sample-# JOIN staff ON sales.staff_name = staff.staff_name
+sample-#                  AND sales.department = staff.department
+sample-# JOIN products ON sales.product_name = products.product_name;
+INSERT 0 1139
+
+# 結果を確認
+sample=# SELECT * FROM salesfact LIMIT 5;
+ order_id | sale_date  | quantity | store_id | company_id | staff_id | product_id
+----------+------------+----------+----------+------------+----------+------------
+        1 | 2022-01-03 |        4 |        2 |          4 |        2 |          4
+        2 | 2022-01-03 |        4 |        2 |          4 |        2 |          4
+        3 | 2022-01-03 |        6 |        2 |          2 |        2 |          5
+        4 | 2022-01-05 |        1 |        2 |          1 |        1 |          1
+        5 | 2022-01-05 |        1 |        2 |          4 |        3 |          5
+(5 行)
