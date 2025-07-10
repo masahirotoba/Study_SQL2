@@ -1,0 +1,206 @@
+# アイスクリームの売上
+shop=# SELECT * FROM salesicecream;
+ shop_id | sale_date  | sales_amt
+---------+------------+-----------
+ A       | 2024-06-01 |     67800
+ A       | 2024-06-02 |     87000
+ A       | 2024-06-05 |     11300
+ A       | 2024-06-10 |      9800
+ A       | 2024-06-15 |      9800
+ B       | 2024-06-02 |    178000
+ B       | 2024-06-15 |     18800
+ B       | 2024-06-17 |     19850
+ B       | 2024-06-20 |     23800
+ B       | 2024-06-21 |     18800
+ C       | 2024-06-01 |     12500
+(11 行)
+
+# 2回GRUOP BYする必要はない
+shop=# SELECT shop_id, SUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY shop_id) FROM salesicecream GROUP BY shop_id;
+ERROR:  列"salesicecream.sales_amt"はGROUP BY句で指定するか、集約関数内で使用しなければなりません
+行 1: SELECT shop_id, SUM(sales_amt) OVER(PARTITION BY shop_id ORD...
+                          ^
+
+# これでＯＫ
+shop=# SELECT shop_id, SUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY shop_id) FROM salesicecream;
+
+# またshop_idでORDER BYすると同じになってしまう
+shop=# SELECT shop_id, SUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY shop_id) FROM salesicecream;
+ shop_id |  sum
+---------+--------
+ A       | 185700
+ A       | 185700
+ A       | 185700
+ A       | 185700
+ A       | 185700
+ B       | 259250
+ B       | 259250
+ B       | 259250
+ B       | 259250
+ B       | 259250
+ C       |  12500
+(11 行)
+
+# なぜshop_idでORDER BYはダメなのか？
+店舗Aのデータ（shop_id順）：
+shop_id | sales_amt | 累計
+--------+-----------+-------
+A       |     67800 | 185700  ← 同じshop_idなので全部まとめて計算
+A       |     87000 | 185700  ← 同じshop_idなので全部まとめて計算
+A       |     11300 | 185700  ← 同じshop_idなので全部まとめて計算
+A       |      9800 | 185700  ← 同じshop_idなので全部まとめて計算
+A       |      9800 | 185700  ← 同じshop_idなので全部まとめて計算
+なぜこうなるのか
+ORDER BY shop_idの問題：
+
+同じ店舗内ではshop_idが全て同じ値（A, A, A, A, A）
+SQLは「同じ値」として扱い、順序が付けられない
+結果として、最初から最後まで全部まとめて計算してしまう
+
+# 同じIDだと合計になって、違うと累計になるのはなぜですか？これはSQLの仕組みですか？
+ウィンドウ関数の基本動作
+「ウィンドウ」とは何か
+ウィンドウ関数は、各行に対して「どの範囲のデータを計算対象にするか」を決める「窓」を作ります。
+
+ORDER BYの役割
+sqlSUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY 何かの列)
+ORDER BYは「どこまでを計算対象にするか」を決める境界線です。
+
+具体例で理解
+
+ORDER BY sale_date の場合
+sql-- 日付順で累計
+SUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY sale_date)
+
+SQLの内部動作：
+行1: 2024-06-01まで → 67800のみ計算
+行2: 2024-06-02まで → 67800 + 87000 = 154800
+行3: 2024-06-05まで → 67800 + 87000 + 11300 = 166100
+行4: 2024-06-10まで → 67800 + 87000 + 11300 + 9800 = 175900
+行5: 2024-06-15まで → 全部 = 185700
+
+ORDER BY shop_id の場合
+sql-- 店舗ID順で累計
+SUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY shop_id)
+
+SQLの内部動作：
+行1: shop_id='A'まで → 全てのAが同じ値なので全部 = 185700
+行2: shop_id='A'まで → 全てのAが同じ値なので全部 = 185700
+行3: shop_id='A'まで → 全てのAが同じ値なので全部 = 185700
+行4: shop_id='A'まで → 全てのAが同じ値なので全部 = 185700
+行5: shop_id='A'まで → 全てのAが同じ値なので全部 = 185700
+
+SQLの仕組み
+ORDER BYの境界決定ルール
+
+異なる値：順序が付けられる → 段階的に計算
+同じ値：順序が付けられない → 同じ値の範囲まで全て計算
+
+視覚的イメージ
+ORDER BY sale_date の場合：
+┌─────┬─────┬─────┬─────┬─────┐
+│  1  │  2  │  3  │  4  │  5  │ ← 各行で計算範囲が拡大
+└─────┴─────┴─────┴─────┴─────┘
+
+ORDER BY shop_id の場合：
+┌─────────────────────────────────┐
+│          A A A A A              │ ← 全て同じ値なので全範囲
+└─────────────────────────────────┘
+
+# でもPARTITION BYも計算範囲も決めますよね。ORDER BYと同じでしょうか？
+PARTITION BYとORDER BYは両方とも計算範囲を決めますが、役割が全く違います。
+2つの違い
+PARTITION BY = 「グループ分け」
+sqlPARTITION BY shop_id
+
+縦に区切る（どの行をまとめるか）
+データを完全に分離
+A店舗の計算にB店舗のデータは絶対に含まれない
+
+ORDER BY = 「計算範囲の境界」
+sqlORDER BY sale_date
+
+横に区切る（そのグループ内のどこまで計算するか）
+段階的に範囲を拡張
+1行目→1行目まで、2行目→12行目まで、3行目→13行目まで
+
+# 累計の計算はこれ
+shop=# SELECT shop_id, SUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY sale_date) FROM salesicecream;
+ shop_id |  sum
+---------+--------
+ A       |  67800
+ A       | 154800
+ A       | 166100
+ A       | 175900
+ A       | 185700
+ B       | 178000
+ B       | 196800
+ B       | 216650
+ B       | 240450
+ B       | 259250
+ C       |  12500
+(11 行)
+
+# 購入明細テーブル
+shop=# SELECT * FROM receipts;
+ customer_id | seq | price
+-------------+-----+-------
+ A           |   1 |   500
+ A           |   2 |  1000
+ A           |   3 |   700
+ B           |   5 |   100
+ B           |   6 |  5000
+ B           |   7 |   300
+ B           |   9 |   200
+ B           |  12 |  1000
+ C           |  10 |   600
+ C           |  20 |   100
+ C           |  45 |   200
+ C           |  70 |    50
+ D           |   3 |  2000
+(13 行)
+
+# 枝番が小さいのを探す基本形
+shop=# SELECT * FROM (SELECT *, MIN(seq) OVER(PARTITION BY customer_id ORDER BY seq) AS min_sep FROM receipts);
+ customer_id | seq | price | min_sep
+-------------+-----+-------+---------
+ A           |   1 |   500 |       1
+ A           |   2 |  1000 |       1
+ A           |   3 |   700 |       1
+ B           |   5 |   100 |       5
+ B           |   6 |  5000 |       5
+ B           |   7 |   300 |       5
+ B           |   9 |   200 |       5
+ B           |  12 |  1000 |       5
+ C           |  10 |   600 |      10
+ C           |  20 |   100 |      10
+ C           |  45 |   200 |      10
+ C           |  70 |    50 |      10
+ D           |   3 |  2000 |       3
+(13 行)
+
+# 枝番の最小を探す
+shop=# SELECT * FROM(SELECT *, MIN(seq) OVER(PARTITION BY customer_id ORDER BY seq) AS min_seq FROM receipts) WHERE seq = min_seq;
+ customer_id | seq | price | min_seq
+-------------+-----+-------+---------
+ A           |   1 |   500 |       1
+ B           |   5 |   100 |       5
+ C           |  10 |   600 |      10
+ D           |   3 |  2000 |       3
+(4 行)
+
+# 株価のトレンドを分析
+shop=# SELECT *, CASE WHEN closing_price > LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN '〇' ELSE NULL END FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend | case
+---------------+------------+---------------+-------+------
+ A社           | 2024-04-01 |           100 |       |
+ A社           | 2024-04-02 |           200 |       | 〇
+ A社           | 2024-04-03 |           199 |       |
+ A社           | 2024-04-04 |           199 |       |
+ B商事         | 2024-04-14 |            20 |       |
+ B商事         | 2024-04-20 |             5 |       |
+ B商事         | 2024-10-10 |            10 |       | 〇
+ C鉄鋼         | 2024-05-01 |           156 |       |
+ C鉄鋼         | 2024-05-03 |           182 |       | 〇
+ C鉄鋼         | 2024-05-05 |           182 |       |
+(10 行)
