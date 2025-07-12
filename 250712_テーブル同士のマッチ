@@ -1,0 +1,45 @@
+# 供給業者テーブルを作る
+shop=# SELECT * FROM suppliers;
+ sup | city |   area   | ship_flg | item_cnt
+-----+------+----------+----------+----------
+ A   | 東京 | 北区     | 可       |       20
+ B   | 東京 | 大田区   | 不可     |       30
+ C   | 東京 | 荒川区   | 可       |       40
+ D   | 東京 | 三鷹市   | 可       |       10
+ E   | 大阪 | 淀川区   | 不可     |       40
+ F   | 大阪 | 堺区     | 不可     |       20
+ G   | 大阪 | 北区     | 可       |       10
+ H   | 大阪 | 福島区   | 不可     |       20
+ I   | 大阪 | 東淀川区 | 可       |       30
+(9 行)
+
+# こういう話ではなくて？
+shop=# SELECT * FROM suppliers WHERE item_cnt >= 30;
+ sup | city |   area   | ship_flg | item_cnt
+-----+------+----------+----------+----------
+ B   | 東京 | 大田区   | 不可     |       30
+ C   | 東京 | 荒川区   | 可       |       40
+ E   | 大阪 | 淀川区   | 不可     |       40
+ I   | 大阪 | 東淀川区 | 可       |       30
+(4 行)
+
+# 供給業者テーブル
+shop=# SELECT * FROM manufacturers;
+ mfs | city |   area   | req_flg
+-----+------+----------+---------
+ a   | 東京 | 北区     | 要
+ b   | 東京 | 荒川区   | 要
+ c   | 東京 | 江戸川区 | 要
+ d   | 大阪 | 淀川区   | 不要
+ e   | 大阪 | 北区     | 不要
+ f   | 大阪 | 福島区   | 要
+(6 行)
+
+# 2つのテーブルを同時に判定にかける
+shop=# SELECT sup, city, area FROM suppliers WHERE ship_flg = '可'
+shop-# AND city || area IN (SELECT city || area FROM manufacturers WHERE req_flg = '要');
+ sup | city |  area
+-----+------+--------
+ A   | 東京 | 北区
+ C   | 東京 | 荒川区
+(2 行)
