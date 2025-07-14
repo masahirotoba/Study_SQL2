@@ -1,0 +1,154 @@
+# テーブルを出力
+shop=# SELECT * FROM salesicecream;
+ shop_id | sale_date  | sales_amt
+---------+------------+-----------
+ A       | 2024-06-01 |     67800
+ A       | 2024-06-02 |     87000
+ A       | 2024-06-05 |     11300
+ A       | 2024-06-10 |      9800
+ A       | 2024-06-15 |      9800
+ B       | 2024-06-02 |    178000
+ B       | 2024-06-15 |     18800
+ B       | 2024-06-17 |     19850
+ B       | 2024-06-20 |     23800
+ B       | 2024-06-21 |     18800
+ C       | 2024-06-01 |     12500
+(11 行)
+
+# 店舗毎の累計売上
+shop=# SELECT *, SUM(sales_amt) OVER(PARTITION BY shop_id ORDER BY sale_date) FROM salesicecream;
+ shop_id | sale_date  | sales_amt |  sum
+---------+------------+-----------+--------
+ A       | 2024-06-01 |     67800 |  67800
+ A       | 2024-06-02 |     87000 | 154800
+ A       | 2024-06-05 |     11300 | 166100
+ A       | 2024-06-10 |      9800 | 175900
+ A       | 2024-06-15 |      9800 | 185700
+ B       | 2024-06-02 |    178000 | 178000
+ B       | 2024-06-15 |     18800 | 196800
+ B       | 2024-06-17 |     19850 | 216650
+ B       | 2024-06-20 |     23800 | 240450
+ B       | 2024-06-21 |     18800 | 259250
+ C       | 2024-06-01 |     12500 |  12500
+(11 行)
+
+# 明細テーブル
+shop=# SELECT * FROM receipts;
+ customer_id | seq | price
+-------------+-----+-------
+ A           |   1 |   500
+ A           |   2 |  1000
+ A           |   3 |   700
+ B           |   5 |   100
+ B           |   6 |  5000
+ B           |   7 |   300
+ B           |   9 |   200
+ B           |  12 |  1000
+ C           |  10 |   600
+ C           |  20 |   100
+ C           |  45 |   200
+ C           |  70 |    50
+ D           |   3 |  2000
+(13 行)
+
+# 店舗毎の最小の枝番
+shop=# SELECT * FROM (
+shop(# SELECT *, FIRST_VALUE(seq) OVER(PARTITION BY customer_id ORDER BY seq) AS min_seq FROM receipts
+shop(# ) tmp WHERE seq = min_seq;
+ customer_id | seq | price | min_seq
+-------------+-----+-------+---------
+ A           |   1 |   500 |       1
+ B           |   5 |   100 |       5
+ C           |  10 |   600 |      10
+ D           |   3 |  2000 |       3
+(4 行)
+
+# 中だけ実行するこれ
+shop=# SELECT *, FIRST_VALUE(seq) OVER(PARTITION BY customer_id ORDER BY seq) AS min_seq FROM receipts
+shop-# ;
+ customer_id | seq | price | min_seq
+-------------+-----+-------+---------
+ A           |   1 |   500 |       1
+ A           |   2 |  1000 |       1
+ A           |   3 |   700 |       1
+ B           |   5 |   100 |       5
+ B           |   6 |  5000 |       5
+ B           |   7 |   300 |       5
+ B           |   9 |   200 |       5
+ B           |  12 |  1000 |       5
+ C           |  10 |   600 |      10
+ C           |  20 |   100 |      10
+ C           |  45 |   200 |      10
+ C           |  70 |    50 |      10
+ D           |   3 |  2000 |       3
+(13 行)
+
+# 株価テーブル
+shop=# SELECT * FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend
+---------------+------------+---------------+-------
+ A社           | 2024-04-01 |           100 |
+ A社           | 2024-04-02 |           200 |
+ A社           | 2024-04-03 |           199 |
+ A社           | 2024-04-04 |           199 |
+ B商事         | 2024-10-10 |            10 |
+ B商事         | 2024-04-14 |            20 |
+ B商事         | 2024-04-20 |             5 |
+ C鉄鋼         | 2024-05-01 |           156 |
+ C鉄鋼         | 2024-05-03 |           182 |
+ C鉄鋼         | 2024-05-05 |           182 |
+(10 行)
+
+# 前日と比較
+shop=# SELECT *, CASE WHEN closing_price > LAG(closing_price) OVER (PARTITION BY ticker_symbol ORDER BY sale_date) THEN 1 ELSE NULL END FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend | case
+---------------+------------+---------------+-------+------
+ A社           | 2024-04-01 |           100 |       |
+ A社           | 2024-04-02 |           200 |       |    1
+ A社           | 2024-04-03 |           199 |       |
+ A社           | 2024-04-04 |           199 |       |
+ B商事         | 2024-04-14 |            20 |       |
+ B商事         | 2024-04-20 |             5 |       |
+ B商事         | 2024-10-10 |            10 |       |    1
+ C鉄鋼         | 2024-05-01 |           156 |       |
+ C鉄鋼         | 2024-05-03 |           182 |       |    1
+ C鉄鋼         | 2024-05-05 |           182 |       |
+(10 行)
+
+# 前日より高かったら〇をつける
+shop=# SELECT *, CASE
+shop-# WHEN closing_price > LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date)
+shop-# THEN '〇' ELSE '' END FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend | case
+---------------+------------+---------------+-------+------
+ A社           | 2024-04-01 |           100 |       |
+ A社           | 2024-04-02 |           200 |       | 〇
+ A社           | 2024-04-03 |           199 |       |
+ A社           | 2024-04-04 |           199 |       |
+ B商事         | 2024-04-14 |            20 |       |
+ B商事         | 2024-04-20 |             5 |       |
+ B商事         | 2024-10-10 |            10 |       | 〇
+ C鉄鋼         | 2024-05-01 |           156 |       |
+ C鉄鋼         | 2024-05-03 |           182 |       | 〇
+ C鉄鋼         | 2024-05-05 |           182 |       |
+(10 行)
+
+# 前日と比較をする
+shop=# SELECT *, CASE
+shop-# WHEN closing_price > LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN 1
+shop-# WHEN closing_price < LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN -1
+shop-# WHEN closing_price = LAG(closing_price) OVER(PARTITION BY ticker_symbol ORDER BY sale_date) THEN 0
+shop-# ELSE NULL END FROM stockhistory;
+ ticker_symbol | sale_date  | closing_price | trend | case
+---------------+------------+---------------+-------+------
+ A社           | 2024-04-01 |           100 |       |
+ A社           | 2024-04-02 |           200 |       |    1
+ A社           | 2024-04-03 |           199 |       |   -1
+ A社           | 2024-04-04 |           199 |       |    0
+ B商事         | 2024-04-14 |            20 |       |
+ B商事         | 2024-04-20 |             5 |       |   -1
+ B商事         | 2024-10-10 |            10 |       |    1
+ C鉄鋼         | 2024-05-01 |           156 |       |
+ C鉄鋼         | 2024-05-03 |           182 |       |    1
+ C鉄鋼         | 2024-05-05 |           182 |       |    0
+(10 行)
